@@ -92,11 +92,11 @@ def unpack_bool(st):
 
 
 def unpack_sint(st):
-    return int(struct.unpack('b', st[0])[0])
+    return int(struct.unpack('b', st[0:1])[0])
 
 
 def unpack_usint(st):
-    return int(struct.unpack('B', st[0])[0])
+    return int(struct.unpack('B', st[0:1])[0])
 
 
 def unpack_int(st):
@@ -205,7 +205,7 @@ PACK_PCCC_DATA_FUNCTION = {
 def print_bytes_line(msg):
     out = ''
     for ch in msg:
-        out += "{:0>2x}".format(ord(ch))
+        out += "{:0>2x}".format(ch)
     return out
 
 
@@ -218,7 +218,7 @@ def print_bytes_msg(msg, info=''):
         if new_line:
             out += "\n({:0>4d}) ".format(line * 10)
             new_line = False
-        out += "{:0>2x} ".format(ord(ch))
+        out += "{:0>2x} ".format(ch)
         if column == 9:
             new_line = True
             column = 0
@@ -457,7 +457,7 @@ class Socket:
                 bytes_recd += len(chunk)
             except socket.error as e:
                 raise CommError(e)
-        return ''.join(chunks)
+        return b''.join(chunks)
 
     def close(self):
         self.sock.close()
@@ -506,9 +506,9 @@ class Base(object):
         self._status = (0, "")
         self._output_raw = False    # indicating value should be output as raw (hex)
 
-        self.attribs = {'context': '_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
-                        'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': '\x27\x04\x19\x71', 'csn': '\x27\x04',
-                        'vid': '\x09\x10', 'vsn': '\x09\x10\x19\x71', 'name': 'Base', 'ip address': None}
+        self.attribs = {'context': b'_pycomm_', 'protocol version': 1, 'rpi': 5000, 'port': 0xAF12, 'timeout': 10,
+                        'backplane': 1, 'cpu slot': 0, 'option': 0, 'cid': b'\x27\x04\x19\x71', 'csn': b'\x27\x04',
+                        'vid': b'\x09\x10', 'vsn': b'\x09\x10\x19\x71', 'name': 'Base', 'ip address': None}
 
     def __len__(self):
         return len(self.attribs)
@@ -558,12 +558,10 @@ class Base(object):
         return self._device_description
 
     def generate_cid(self):
-        self.attribs['cid'] = '{0}{1}{2}{3}'.format(chr(random.randint(0, 255)), chr(random.randint(0, 255))
-                                                    , chr(random.randint(0, 255)), chr(random.randint(0, 255)))
+        self.attribs['cid'] = bytes([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
 
     def generate_vsn(self):
-        self.attribs['vsn'] = '{0}{1}{2}{3}'.format(chr(random.randint(0, 255)), chr(random.randint(0, 255))
-                                                    , chr(random.randint(0, 255)), chr(random.randint(0, 255)))
+        self.attribs['vsn'] = bytes([random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)])
 
     def description(self):
         return self._device_description
@@ -690,7 +688,7 @@ class Base(object):
             self.attribs['vid'],
             self.attribs['vsn'],
             TIMEOUT_MULTIPLIER,
-            '\x00\x00\x00',
+            b'\x00\x00\x00',
             pack_dint(self.attribs['rpi'] * 1000),
             pack_uint(CONNECTION_PARAMETER['Default']),
             pack_dint(self.attribs['rpi'] * 1000),
@@ -717,7 +715,7 @@ class Base(object):
             ]
 
         if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
+                build_common_packet_format(DATA_ITEM['Unconnected'], b''.join(forward_open_msg), ADDRESS_ITEM['UCMM'],)):
             self._target_cid = self._reply[44:48]
             self._target_is_connected = True
             return True
@@ -762,18 +760,18 @@ class Base(object):
         if self.__direct_connections:
             forward_close_msg[11:2] = [
                 CONNECTION_SIZE['Direct Network'],
-                '\x00'
+                b'\x00'
             ]
         else:
             forward_close_msg[11:4] = [
                 CONNECTION_SIZE['Backplane'],
-                '\x00',
+                b'\x00',
                 pack_usint(self.attribs['backplane']),
                 pack_usint(self.attribs['cpu slot'])
             ]
 
         if self.send_rr_data(
-                build_common_packet_format(DATA_ITEM['Unconnected'], ''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
+                build_common_packet_format(DATA_ITEM['Unconnected'], b''.join(forward_close_msg), ADDRESS_ITEM['UCMM'])):
             self._target_is_connected = False
             return True
         self._status = (5, "forward_close returned False")
